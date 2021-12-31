@@ -4,6 +4,8 @@ from libs import *
 from utils.augumentation import Compose, ConvertFromInts, ToAbsoluteCoords,\
     PhotometricDistort, Expand, RandomSampleCrop, RandomMirror, \
     ToPercentCoords, Resize, SubtractMeans
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 
 
 class DataTransform():
@@ -15,7 +17,7 @@ class DataTransform():
                               PhotometricDistort(), #change color by random
                               Expand(color_mean),
                               RandomSampleCrop(), #random crop image
-                              RandomMirror, #Flip image
+                              RandomMirror(), #Flip image
                               ToPercentCoords(), #standard annotation in range [0,1]
                               Resize(input_size),
                               SubtractMeans(color_mean) #Subtract mean của BGR
@@ -30,6 +32,7 @@ class DataTransform():
 
     def __call__(self, img, phase, boxes, labels):
         return self.data_transform[phase](img, boxes, labels)
+
 
 
 if __name__ == '__main__':
@@ -57,3 +60,19 @@ if __name__ == '__main__':
     plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
     plt.show()
 
+    #prepare data transform
+    color_mean = (104, 117, 123)
+    input_size = 300
+    transform = DataTransform(input_size, color_mean)
+
+    #transform train img
+    phase = "train"
+    img_transformed, boxes, labels = transform(img, phase, anno_info_list[:, :-1], anno_info_list[:, -1])
+    plt.imshow(cv2.cvtColor(img_transformed, cv2.COLOR_BGR2RGB))
+    plt.show()
+
+    #transform val img
+    phase = "val"
+    img_transformed, boxes, labels = transform(img, phase, anno_info_list[:, :-1], anno_info_list[:, -1])
+    plt.imshow(cv2.cvtColor(img_transformed, cv2.COLOR_BGR2RGB))
+    plt.show()
