@@ -123,7 +123,25 @@ class SSD(nn.Module):
             self.detect = Detect()
 
 
+def decode(loc, defbox_list):
+    """
+    :param loc: [8732, 4] (delta_x, delta_y, delta_w, delta_h)
+    :param defbox_list: [8732, 4] (cx_d, cy_d, w_d, h_d)
+    :return: boxes[xmin, ymin, xmax, ymax]
+    """
 
+    boxes = torch.cat((
+                        defbox_list[:, :2] + 0.1*loc[:, :2]*defbox_list[:, 2:],
+                        defbox_list[:, 2:]*torch.exp(loc[:, 2:]*0.2)), dim=1)
+
+    boxes[:, :2] -= boxes[: ,2:]/2 #calculate xmin, ymin
+    boxes[:, 2:] += boxes[:, :2] #calculate xmax, ymax
+
+    return boxes
+
+
+#non-maximum_supression
+def nms(boxes, score, )
 
 if __name__ == "__main__":
     # vgg = create_vgg()
