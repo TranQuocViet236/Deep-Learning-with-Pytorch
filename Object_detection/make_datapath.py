@@ -1,5 +1,6 @@
 from libs import *
 
+
 def make_datapath_list(root_path):
     image_path_template = osp.join(root_path, "JPEGImages", "%s.jpg")
     image_path_template = image_path_template.replace("\\", "/" )

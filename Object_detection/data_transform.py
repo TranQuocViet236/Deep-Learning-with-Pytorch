@@ -1,10 +1,13 @@
-from make_datapath import make_datapath_list
+import os
+
 from extract_inform_annotation import Anno_xml
 from libs import *
-from utils.augumentation import Compose, ConvertFromInts, ToAbsoluteCoords,\
-    PhotometricDistort, Expand, RandomSampleCrop, RandomMirror, \
-    ToPercentCoords, Resize, SubtractMeans
-import os
+from make_datapath import make_datapath_list
+from utils.augumentation import (Compose, ConvertFromInts, Expand,
+                                 PhotometricDistort, RandomMirror,
+                                 RandomSampleCrop, Resize, SubtractMeans,
+                                 ToAbsoluteCoords, ToPercentCoords)
+
 os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 
 

@@ -1,7 +1,7 @@
-from libs import *
-from make_datapath import make_datapath_list
 from data_transform import DataTransform
 from extract_inform_annotation import Anno_xml
+from libs import *
+from make_datapath import make_datapath_list
 
 
 class MyDataset(data.Dataset):

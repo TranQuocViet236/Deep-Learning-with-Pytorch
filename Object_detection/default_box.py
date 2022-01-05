@@ -1,6 +1,5 @@
 from libs import *
 
-
 cfg = {
     "num_classes": 21, #VOC data include 20 class + 1 background class
     "input_size": 300, #SSD300

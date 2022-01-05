@@ -1,6 +1,6 @@
-from libs import *
-from l2_norm import L2Norm
 from default_box import DefBox
+from l2_norm import L2Norm
+from libs import *
 
 
 
@@ -14,6 +14,7 @@ cfg = {
     "max_size": [60, 111, 162, 213, 264, 315],  # Size of default box
     "aspect_ratios": [[2], [2, 3], [2, 3], [2, 3], [2], [2]]
 }
+
 
 
 def create_vgg():
@@ -141,7 +142,81 @@ def decode(loc, defbox_list):
 
 
 #non-maximum_supression
-def nms(boxes, score, )
+def nms(boxes, scores, overlap=0.45, top_k=200):
+    """
+    :param boxes: [num_box, 4]
+    :param scores: [num_box]
+    :param overlap:
+    :param top_k:
+    :return:
+    """
+    count = 0
+    keep = scores.new(scores.size(0)).zero_().long()
+
+    #boxes coordinates
+    x1 = boxes[:, 0]
+    y1 = boxes[:, 1]
+    x2 = boxes[:, 2]
+    y2 = boxes[:, 3]
+
+    #area of boxes
+    area = torch.mul(x2-x1, y2-y1)
+
+    tmp_x1 = boxes.new()
+    tmp_x2 = boxes.new()
+    tmp_y1 = boxes.new()
+    tmp_y2 = boxes.new()
+    tmp_w = boxes.new()
+    tmp_h = boxes.new()
+
+    value, idx = scores.sort(dim=0)
+    idx = idx[-top_k, :] #id của top 200 boxes có độ tin cao nhất
+
+    while idx.numel() > 0:
+        i = idx[-1] #id của box có độ tự tin cao nhất
+
+        keep[count] = i
+        count += 1
+
+        if idx.size(0) == 1:
+            break
+
+        idx = idx[:-1] #id của boxes ngoại từ box có độ tự tin cao nhất
+
+        #information boxes
+        torch.index_select(x1, 0, idx, out=tmp1_x1)  # x1
+        torch.index_select(y1, 0, idx, out=tmp1_y1)  # y1
+        torch.index_select(x2, 0, idx, out=tmp1_x2)  # x2
+        torch.index_select(y2, 0, idx, out=tmp1_y2)  # y2
+
+        tmp_x1 = torch.clamp(tmp_x1, min=x1[i]) # x1[i] if tmp_x1 < x1[1]
+        tmp_y1 = torch.clamp(tmp_y1, min=y1[i])
+        tmp_x2 = torch.clamp(tmp_x2, max=x2[i])
+        tmp_y2 = torch.clamp(tmp_y2, max=y2[i]) # y2[i] if tmp_y1 > y2[i]
+
+        # chuyển về tensor có size mà index được giản đi 1
+        tmp_w.resize_as_(tmp_x2)
+        tmp_h.resize_as_(tmp_y2)
+
+        tmp_w = tmp_x2 - tmp_x1
+        tmp_h = tmp_y2 - tmp_y1
+
+        tmp_w = torch.clamp(tmp_w, min=0.0)
+        tmp_h = torch.clamp(tmp_h, min=0.0)
+
+        # overlap area
+        inter = tmp_w*tmp_h
+
+        others_area = torch.index_select(area, 0, idx) # diện tích của mỗi bdbox
+        union = area[i] + others_area - inter
+
+        iou = inter/union
+
+        idx = idx[iou.le(0.45)]
+
+    return keep, count
+
+
 
 if __name__ == "__main__":
     # vgg = create_vgg()
@@ -154,3 +229,4 @@ if __name__ == "__main__":
 
     ssd = SSD(phase="train", cfg=cfg)
     print(ssd)
+
