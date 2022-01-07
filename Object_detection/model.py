@@ -123,6 +123,51 @@ class SSD(nn.Module):
         if phase == "inference":
             self.detect = Detect()
 
+    def forward(self, x):
+        sources = list()
+        loc = list()
+        conf = list()
+
+        for k in range(23):
+            x = self.vgg[k][x]
+
+        #source1
+        source1 = self.L2Norm(x)
+        sources.append(source1)
+
+        for k in range(23, len(self.vgg))
+            x = self.vgg[k](x)
+
+        #source2
+        sources.append(x)
+
+        #source3 -> source6
+        for k, v in enumerate(self.extras):
+            x = nn.ReLU(v(x), inplace=True)
+        if k % 2 == 1:
+            sources.append(x)
+
+        for (x, l, c) in zip(sources, self.loc, self.conf):
+            #aspect_ratio_num = 4, 6
+            #(batch_size, 4*aspect_ratio_num, featuremap_height, featuremap_width)
+            # -> (batch_size, featuremap_height, featuremap_width, 4*aspect_ratio_num, )
+            loc.append(l(x).permute(0, 2, 3, 1).contiguous())
+            conf.append(c(x).permute(0, 2, 3, 1).contiguous())
+
+        loc = torch.cat([o.view(o.size(0), -1, )for o in loc]) #(batch_size, 34928) 4*8732
+        conf = torch.cat([o.view(o.size(0), -1, )for o in conf]) #(batch_size, 8732*21)
+
+        loc = loc.view(loc.size(0), -1, 4) # (batch_size, 8732, 4)
+        conf = conf.view(conf.size(0), -1, self.num_classes) # (batch_size, 8732, 21)
+
+        output = (loc, conf, self.dbox_list)
+
+        if self.phase == "inference":
+            return self.detect(output[0], output[1], output[2])
+
+        else:
+            return output
+
 
 def decode(loc, defbox_list):
     """
@@ -217,6 +262,49 @@ def nms(boxes, scores, overlap=0.45, top_k=200):
     return keep, count
 
 
+class Detect(Function):
+    def __init__(self, conf_thresh=0.01, top_k=200, nms_thresh=0.45):
+        self.softmax = nn.Softmax(dim=-1)
+        self.conf_thresh = conf_thresh
+        self.top_k = top_k
+        self.nms_thresh = nms_thresh
+
+    def forward(self, loc_data, conf_data, dbox_list):
+        num_batch = loc_data.size(0) #batch_size
+        num_dbox = loc_data.size(1) #8732
+        num_classes = conf_data.size(2) #21
+
+        conf_data = self.softmax(conf_data) #(batch_num, num_dbox, num_classes) -> (batch_num, num_classes, num_dbox)
+        conf_preds = conf_data.transpose(2, 1)
+
+        output = torch.zeros(num_batch, num_classes, self.top_k, 5)
+
+        # Xử lý từng bức ảnh trong một batch các bức ảnh
+        for i in range(num_batch):
+            #Tính bbox từ offset information và default box
+            decode_boxes = decode(loc_data[i], dbox_list)
+
+            #copy inference score của ảnh thứ i
+            conf_scores = conf_preds[i].clone()
+
+            for cl in range(1, num_classes):
+                c_mask = conf_preds[cl].gt(self.conf_thresh) #chỉ lấy những confidence > 0.01
+                scores = conf_preds[cl][c_mask]
+
+                if scores.element() == 0:
+                    continue
+
+                #đưa chiều về giống chiều của decode_boxes để tính toán
+                l_mask = c_mask.unsqueeze(1).exoand_as(decode_boxes) #(8732, 4)
+
+                boxes = decode_boxes[l_mask].view(-1, 4)
+
+                ids, count = nms(boxes, scores, self.nms_thresh, self.top_k)
+
+                output[i, cl, : count] = torch.cat((scores[ids[:count]].unsqueeze(1), boxes[ids[:count]]), 1)
+
+        return output
+
 
 if __name__ == "__main__":
     # vgg = create_vgg()
@@ -229,4 +317,6 @@ if __name__ == "__main__":
 
     ssd = SSD(phase="train", cfg=cfg)
     print(ssd)
+
+
 
