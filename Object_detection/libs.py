@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
+import torch.optim as optim
 import torch.nn.functional as F
 from torch.autograd import Function
 import torch.nn as nn
